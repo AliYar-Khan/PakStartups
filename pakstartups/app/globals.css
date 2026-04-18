@@ -1,16 +1,10 @@
 @import "tailwindcss";
-
 @theme {
   --font-family-headline: "Plus Jakarta Sans", sans-serif;
   --font-family-body: "Plus Jakarta Sans", sans-serif;
   --font-family-label: "Plus Jakarta Sans", sans-serif;
   --font-family-sans: "Plus Jakarta Sans", sans-serif;
 }
-
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
-
-/* Material Symbols */
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
 :root {
   --color-primary: #0f5238;

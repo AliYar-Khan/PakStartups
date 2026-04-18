@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "skills": {
+    "engineering-senior-developer": {
+      "source": "peterhdd/agent-skills",
+      "sourceType": "github",
+      "computedHash": "aa4e7fe5d367d0e3ff41a5e98b1f84a904a255d595c19e3be410be12f13b3173"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "computedHash": "516bd2154eb843a8240e43d5b285229129853114ad7075a5e141e1c08e408c84"
+    },
+    "stitch-design": {
+      "source": "google-labs-code/stitch-skills",
+      "sourceType": "github",
+      "computedHash": "14d1deae897bc05a31c4e0d9fcf8c86e90cfe77bfbde2f22fafa0735bd0e861c"
+    },
+    "ui-ux-pro-max": {
+      "source": "kimny1143/claude-code-template",
+      "sourceType": "github",
+      "computedHash": "b6f3a46da860714b6b7c733abc81d6ccb71018666ba46f478ebb5f43cefcf361"
+    }
+  }
+}

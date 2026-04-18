@@ -1,18 +1,138 @@
-rules_version='2'
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2026, 5, 18);
+
+    // ─── Helper Functions ──────────────────────────────────────────────────────
+    function isAuth() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    function validString(field, minLen, maxLen) {
+      return field is string && field.size() >= minLen && field.size() <= maxLen;
+    }
+
+    // ─── Users ────────────────────────────────────────────────────────────────
+    match /users/{uid} {
+      // Any authenticated user can read profiles (for co-founder matching etc.)
+      allow read: if isAuth();
+      // Only the owner can create / update their own profile
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ─── Startups ─────────────────────────────────────────────────────────────
+    match /startups/{startupId} {
+      allow read: if true;                           // public browsing
+      allow create: if isAuth()
+        && validString(request.resource.data.name, 2, 100)
+        && validString(request.resource.data.desc, 10, 500);
+      allow update: if isOwner(resource.data.ownerId) || isAdmin();
+      allow delete: if isOwner(resource.data.ownerId) || isAdmin();
+    }
+
+    // ─── Match Profiles ───────────────────────────────────────────────────────
+    match /matchProfiles/{profileId} {
+      allow read: if true;
+      allow create: if isAuth() && request.auth.uid == request.resource.data.uid;
+      allow update: if isOwner(resource.data.uid) || isAdmin();
+      allow delete: if isOwner(resource.data.uid) || isAdmin();
+    }
+
+    // ─── Connection Requests ──────────────────────────────────────────────────
+    match /connections/{connId} {
+      allow read: if isAuth() && (
+        request.auth.uid == resource.data.fromUid ||
+        request.auth.uid == resource.data.toUid
+      );
+      allow create: if isAuth() && request.auth.uid == request.resource.data.fromUid;
+      allow update: if isAuth() && request.auth.uid == resource.data.toUid; // accept/decline
+      allow delete: if isAuth() && (
+        request.auth.uid == resource.data.fromUid ||
+        request.auth.uid == resource.data.toUid
+      );
+    }
+
+    // ─── B2B Demands ──────────────────────────────────────────────────────────
+    match /b2bDemands/{demandId} {
+      allow read: if true;
+      allow create: if isAuth()
+        && validString(request.resource.data.title, 5, 200)
+        && validString(request.resource.data.desc, 20, 1000);
+      allow update: if isOwner(resource.data.ownerId) || isAdmin();
+      allow delete: if isOwner(resource.data.ownerId) || isAdmin();
+    }
+
+    // ─── B2B Solutions ─────────────────────────────────────────────────────────
+    match /b2bSolutions/{solutionId} {
+      allow read: if true;
+      allow create: if isAuth()
+        && validString(request.resource.data.title, 5, 200);
+      allow update: if isOwner(resource.data.ownerId) || isAdmin();
+      allow delete: if isOwner(resource.data.ownerId) || isAdmin();
+    }
+
+    // ─── Ideas ────────────────────────────────────────────────────────────────
+    match /ideas/{ideaId} {
+      allow read: if true;
+      allow create: if isAuth()
+        && validString(request.resource.data.title, 5, 200)
+        && validString(request.resource.data.desc, 20, 2000);
+      allow update: if isOwner(resource.data.ownerId) || isAdmin();
+      allow delete: if isOwner(resource.data.ownerId) || isAdmin();
+
+      // Votes sub-collection: one doc per user
+      match /votes/{uid} {
+        allow read: if true;
+        allow write: if isOwner(uid);
+      }
+    }
+
+    // ─── Blog Posts / Stories ─────────────────────────────────────────────────
+    match /blogPosts/{postId} {
+      // Everyone can read approved posts
+      allow read: if resource.data.status == 'approved' || isAdmin();
+      allow create: if isAuth()
+        && validString(request.resource.data.title, 5, 200)
+        && request.resource.data.status == 'pending';
+      allow update: if isOwner(resource.data.authorId) || isAdmin();
+      allow delete: if isOwner(resource.data.authorId) || isAdmin();
+    }
+
+    // ─── Events ───────────────────────────────────────────────────────────────
+    match /events/{eventId} {
+      allow read: if true;
+      allow create: if isAuth()
+        && validString(request.resource.data.title, 5, 200)
+        && request.resource.data.status == 'pending';
+      allow update: if isOwner(resource.data.organizerId) || isAdmin();
+      allow delete: if isOwner(resource.data.organizerId) || isAdmin();
+
+      // RSVP sub-collection
+      match /rsvps/{uid} {
+        allow read: if true;
+        allow write: if isOwner(uid);
+      }
+    }
+
+    // ─── Knowledge Resources ──────────────────────────────────────────────────
+    match /knowledgeResources/{resourceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ─── Notifications ────────────────────────────────────────────────────────
+    match /notifications/{notifId} {
+      allow read: if isAuth() && request.auth.uid == resource.data.toUid;
+      allow create: if isAuth();
+      allow update: if isAuth() && request.auth.uid == resource.data.toUid;
+      allow delete: if isAuth() && request.auth.uid == resource.data.toUid;
     }
   }
 }

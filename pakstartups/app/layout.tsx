@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { AuthProvider } from "@/lib/context/AuthContext";
 
 export const metadata: Metadata = {
   title: "PakStartups — Pakistan's Startup Ecosystem",
@@ -34,9 +35,11 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-[#e8ffee] text-[#002112] selection:bg-[#b1f0ce] selection:text-[#002114] antialiased">
-        <Header />
-        <main>{children}</main>
-        <Footer />
+        <AuthProvider>
+          <Header />
+          <main>{children}</main>
+          <Footer />
+        </AuthProvider>
       </body>
     </html>
   );

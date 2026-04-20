@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { addDoc, collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp } from "firebase/firestore";
@@ -10,7 +10,7 @@ import { downvoteIdea, upvoteIdea } from "@/lib/services/ideas";
 
 type Comment = { id: string; body: string; authorName: string; createdAt?: { toDate?: () => Date } | string | null };
 
-export default function IdeaViewPage() {
+function IdeaViewContent() {
   const params = useSearchParams();
   const router = useRouter();
   const { user, profile } = useAuth();
@@ -72,5 +72,13 @@ export default function IdeaViewPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function IdeaViewPage() {
+  return (
+    <Suspense fallback={<main className="max-w-4xl mx-auto px-8 py-16 text-[#404943]">Loading idea...</main>}>
+      <IdeaViewContent />
+    </Suspense>
   );
 }

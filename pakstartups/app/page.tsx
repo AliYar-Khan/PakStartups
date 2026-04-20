@@ -241,10 +241,7 @@ export default function HomePage() {
                 className="bg-[#2d6a4f] p-10 rounded-xl hover:translate-y-[-8px] transition-transform duration-300"
               >
                 <div className="flex justify-between items-start mb-12">
-                  <span
-                    className="material-symbols-outlined text-5xl"
-                    style={c.iconFilled ? { fontVariationSettings: "'FILL' 1" } : {}}
-                  >
+                  <span className="material-symbols-outlined text-5xl">
                     {c.icon}
                   </span>
                   <span className="material-symbols-outlined opacity-40">open_in_new</span>

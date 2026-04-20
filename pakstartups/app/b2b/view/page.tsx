@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 
-export default function B2BViewPage() {
+function B2BViewContent() {
   const params = useSearchParams();
   const kind = params.get("kind") ?? "demand";
   const id = params.get("id") ?? "";
@@ -31,5 +31,13 @@ export default function B2BViewPage() {
         <Link href={`mailto:hello@pakstartups.org?subject=${encodeURIComponent(`B2B ${kind}: ${String(item?.title ?? "Listing")}`)}`} className="inline-flex px-5 py-3 bg-[#0f5238] text-white rounded-lg font-bold">View & Respond</Link>
       </div>
     </main>
+  );
+}
+
+export default function B2BViewPage() {
+  return (
+    <Suspense fallback={<main className="max-w-4xl mx-auto px-8 py-16 text-[#404943]">Loading listing...</main>}>
+      <B2BViewContent />
+    </Suspense>
   );
 }

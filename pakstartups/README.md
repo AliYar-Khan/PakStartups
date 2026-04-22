@@ -78,6 +78,12 @@ Required values:
 Optional:
 
 - `NEXT_PUBLIC_FIREBASE_MESSUREMENT_ID` (analytics)
+- `ENABLE_PUBLIC_WRITES` (server write guard for API POST routes)
+
+Recommended while running a public open-source repository:
+
+- Keep `ENABLE_PUBLIC_WRITES=false` by default.
+- Only set `ENABLE_PUBLIC_WRITES=true` after server-side token verification and abuse controls are fully configured.
 
 ### 4. Run locally
 
@@ -110,6 +116,8 @@ Please read these before contributing:
 - `CODE_OF_CONDUCT.md`
 - `SECURITY.md`
 - `ROADMAP.md`
+
+Use the issue templates and PR template in `.github/` when opening work items and pull requests.
 
 ## Security Note
 

@@ -9,13 +9,6 @@ const footerLinks = {
     { label: "Ecosystem Map", href: "/ecosystem" },
     { label: "Submit Startup", href: "/startups/submit" },
   ],
-  Community: [
-    { label: "Reddit", href: "https://reddit.com/r/PakStartups" },
-    { label: "Discord", href: "#" },
-    { label: "Events & Meetups", href: "/events" },
-    { label: "Success Stories", href: "/blog" },
-    { label: "Volunteer", href: "/volunteer" },
-  ],
   Resources: [
     { label: "Knowledge Hub", href: "/knowledge" },
     { label: "Legal Templates", href: "/knowledge" },
@@ -25,6 +18,13 @@ const footerLinks = {
     { label: "About Us", href: "/about" },
   ],
 };
+
+const socialLinks = [
+  { icon: "forum", label: "Reddit", href: "https://reddit.com/r/PakStartups" },
+  { icon: "chat", label: "Discord", href: "#" },
+  { icon: "public", label: "LinkedIn", href: "#" },
+  { icon: "alternate_email", label: "Email", href: "mailto:hello@pakstartups.org" },
+];
 
 export default function Footer() {
   return (
@@ -46,23 +46,16 @@ export default function Footer() {
             <p className="text-sm text-[#2d6a4f] leading-relaxed mb-8">
               Building the definitive platform for Pakistan&apos;s entrepreneurial ecosystem through data, community, and capital.
             </p>
-            <p className="text-sm text-[#2d6a4f] mb-6">
+            <p className="text-sm text-[#2d6a4f] mb-4">
               Support: <a href="mailto:hello@pakstartups.org" className="font-semibold hover:text-[#0f5238] transition-colors">hello@pakstartups.org</a>
             </p>
             {/* Social icons */}
             <div className="flex gap-4">
-              <a href="https://reddit.com/r/PakStartups" aria-label="Reddit" className="text-[#2d6a4f] hover:text-[#0f5238] transition-colors">
-                <span className="material-symbols-outlined">forum</span>
-              </a>
-              <a href="#" aria-label="Discord" className="text-[#2d6a4f] hover:text-[#0f5238] transition-colors">
-                <span className="material-symbols-outlined">chat</span>
-              </a>
-              <a href="#" aria-label="LinkedIn" className="text-[#2d6a4f] hover:text-[#0f5238] transition-colors">
-                <span className="material-symbols-outlined">public</span>
-              </a>
-              <a href="#" aria-label="Twitter" className="text-[#2d6a4f] hover:text-[#0f5238] transition-colors">
-                <span className="material-symbols-outlined">alternate_email</span>
-              </a>
+              {socialLinks.map((social) => (
+                <a key={social.label} href={social.href} aria-label={social.label} className="text-[#2d6a4f] hover:text-[#0f5238] transition-colors">
+                  <span className="material-symbols-outlined">{social.icon}</span>
+                </a>
+              ))}
             </div>
           </div>
 

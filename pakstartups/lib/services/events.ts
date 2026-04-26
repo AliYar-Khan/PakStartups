@@ -76,15 +76,11 @@ export async function getWeeklyMeetups(): Promise<EventItem[]> {
 }
 
 export async function getFeaturedEvent(): Promise<EventItem | null> {
-  const q = query(
-    collection(db, COL),
-    where("status", "==", "approved"),
-    where("isFeatured", "==", true),
-    limit(1)
-  );
+  const q = query(collection(db, COL), where("status", "==", "approved"), limit(20));
   const snaps = await getDocs(q);
-  if (snaps.empty) return null;
-  return { id: snaps.docs[0].id, ...snaps.docs[0].data() } as EventItem;
+  const featured = snaps.docs.find((d) => d.data().isFeatured === true);
+  if (!featured) return null;
+  return { id: featured.id, ...featured.data() } as EventItem;
 }
 
 export async function proposeEvent(data: Omit<EventItem, "id" | "status" | "isFeatured" | "rsvpCount" | "createdAt">) {

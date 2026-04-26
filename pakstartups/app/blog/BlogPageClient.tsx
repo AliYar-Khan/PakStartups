@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { getSanityPosts, getSanityFeaturedPost, type SanityBlogPost } from "@/sanity/lib/queries";
+import { getBlogPosts, getFeaturedPost, type BlogPost } from "@/lib/services/blog";
 
 const catColors: Record<string, string> = {
   "Case Study": "bg-[#d5fde2] text-[#0f5238]",
@@ -26,21 +25,22 @@ function SkeletonCard() {
 
 export default function BlogPageClient() {
   const [activeTab, setActiveTab] = useState("All Posts");
-  const [posts, setPosts] = useState<SanityBlogPost[]>([]);
-  const [featured, setFeatured] = useState<SanityBlogPost | null>(null);
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [featured, setFeatured] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(6);
 
   useEffect(() => {
+    setLoading(true);
     (async () => {
       try {
         const [feat, data] = await Promise.all([
-          getSanityFeaturedPost(),
-          getSanityPosts(activeTab),
+          getFeaturedPost(),
+          getBlogPosts(activeTab),
         ]);
         setFeatured(feat);
-        setPosts(data.filter((p) => !feat || p._id !== feat._id));
+        setPosts(data.filter((p) => !feat || p.id !== feat.id));
         setVisibleCount(6);
       } catch (e) {
         console.error(e);
@@ -53,7 +53,10 @@ export default function BlogPageClient() {
   const filteredPosts = posts.filter((post) => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;
-    return [post.title, post.excerpt, post.category, post.authorName].join(" ").toLowerCase().includes(q);
+    return [post.title, post.excerpt, post.category, post.authorName, post.startupName]
+      .join(" ")
+      .toLowerCase()
+      .includes(q);
   });
 
   return (
@@ -104,21 +107,19 @@ export default function BlogPageClient() {
               <h2 className="text-3xl md:text-4xl font-black text-[#002112] mb-4 leading-tight">{featured.title}</h2>
               <p className="text-[#404943] mb-6 leading-relaxed">{featured.excerpt}</p>
               <div className="flex items-center gap-4">
-                {featured.authorAvatar && (
-                  <div className="w-8 h-8 rounded-full overflow-hidden">
-                    <Image width={32} height={32} src={featured.authorAvatar} alt="Author" className="w-full h-full object-cover" />
-                  </div>
-                )}
+                <div className="w-8 h-8 rounded-full bg-[#b7f2a0] flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-sm text-[#0f5238]">person</span>
+                </div>
                 <span className="text-sm font-bold text-[#002112]">{featured.authorName}</span>
-                <span className="text-sm text-[#707973]">{featured.readTime}</span>
-                <Link href={`/blog/${featured.slug?.current ?? featured._id}`} className="bg-[#0f5238] text-white px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-[#2d6a4f] transition-all flex items-center gap-1">
+                {featured.readTime && <span className="text-sm text-[#707973]">{featured.readTime}</span>}
+                <Link href={`/blog/${featured.id}`} className="bg-[#0f5238] text-white px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-[#2d6a4f] transition-all flex items-center gap-1">
                   Read Story <span className="material-symbols-outlined text-sm">arrow_forward</span>
                 </Link>
               </div>
             </div>
-            {featured.mainImage && (
+            {featured.cover && (
               <div className="w-full md:w-80 shrink-0 aspect-square rounded-2xl overflow-hidden">
-                <Image width={320} height={320} src={featured.mainImage} alt={featured.title} className="w-full h-full object-cover" />
+                <img src={featured.cover} alt={featured.title} className="w-full h-full object-cover" />
               </div>
             )}
           </div>
@@ -137,10 +138,10 @@ export default function BlogPageClient() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
             {filteredPosts.slice(0, visibleCount).map((p) => (
-              <Link key={p._id} href={`/blog/${p.slug?.current ?? p._id}`} className="group cursor-pointer block">
+              <Link key={p.id} href={`/blog/${p.id}`} className="group cursor-pointer block">
                 <div className="rounded-xl aspect-[16/10] mb-4 overflow-hidden border border-[#e0e0e0]">
-                  {p.mainImage ? (
-                    <Image width={400} height={250} src={p.mainImage} alt={p.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  {p.cover ? (
+                    <img src={p.cover} alt={p.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   ) : (
                     <div className="w-full h-full bg-[#d5fde2] flex items-center justify-center">
                       <span className="material-symbols-outlined text-4xl text-[#0f5238]">article</span>
@@ -152,13 +153,11 @@ export default function BlogPageClient() {
                 </span>
                 <h3 className="font-bold text-[#002112] text-lg leading-snug mb-3 group-hover:text-[#0f5238] transition-colors line-clamp-2">{p.title}</h3>
                 <div className="flex items-center gap-2">
-                  {p.authorAvatar && (
-                    <div className="w-6 h-6 rounded-full overflow-hidden">
-                      <Image width={24} height={24} src={p.authorAvatar} alt={p.authorName} className="w-full h-full object-cover" />
-                    </div>
-                  )}
+                  <div className="w-6 h-6 rounded-full bg-[#b7f2a0] flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[10px] text-[#0f5238]">person</span>
+                  </div>
                   <span className="text-xs font-bold text-[#002112]">{p.authorName}</span>
-                  <span className="text-xs text-[#707973]">· {p.readTime}</span>
+                  {p.readTime && <span className="text-xs text-[#707973]">· {p.readTime}</span>}
                 </div>
               </Link>
             ))}

@@ -17,24 +17,34 @@ service cloud.firestore {
     function validString(field, minLen, maxLen) {
       return field is string && field.size() >= minLen && field.size() <= maxLen;
     }
-    // Prevent non-admins from setting role to 'admin'
+    // Restrict self-assigned roles to the safe allowlist; only admin can set 'admin'
     function roleNotEscalated() {
       return !('role' in request.resource.data) ||
-             request.resource.data.role != 'admin';
+             request.resource.data.role in ['user', 'founder'];
     }
     // Prevent owners from self-approving moderation status — admin-only field
     function statusUnchanged() {
       return !('status' in request.resource.data) ||
              request.resource.data.status == resource.data.status;
     }
+    // Only the listed fields (and no others) are affected by this update
+    function onlyChanged(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+    // None of the listed fields are affected by this update
+    function noneChanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+    // Field changed by exactly ±1 (for counter increments/decrements)
+    function counterStep(field) {
+      let delta = request.resource.data[field] - resource.data[field];
+      return delta == 1 || delta == -1;
+    }
 
     // ─── Users ────────────────────────────────────────────────────────────────
     match /users/{uid} {
-      // Any authenticated user can read profiles (needed for display names, avatars)
       allow read: if isAuth();
-      // Users create their own profile — no self-promotion to admin
       allow create: if isOwner(uid) && roleNotEscalated();
-      // Users can edit their own profile; admins can change any field including role
       allow update: if (isOwner(uid) && roleNotEscalated()) || isAdmin();
       allow delete: if isAdmin();
     }
@@ -46,10 +56,16 @@ service cloud.firestore {
         && validString(request.resource.data.name, 2, 100)
         && validString(request.resource.data.desc, 10, 500)
         && request.resource.data.ownerId == request.auth.uid
-        // New submissions must enter moderation queue
         && request.resource.data.status == 'pending';
-      // Owners can edit content fields but cannot self-approve — only admins change status
-      allow update: if (isOwner(resource.data.ownerId) && statusUnchanged()) || isAdmin();
+      allow update: if isAdmin()
+        // Owner can edit content but cannot change ownerId, status, or the views counter
+        || (isOwner(resource.data.ownerId)
+            && statusUnchanged()
+            && noneChanged(['ownerId', 'views']))
+        // Anyone (even unauthenticated) may increment views by exactly 1
+        || (onlyChanged(['views'])
+            && request.resource.data.views is int
+            && request.resource.data.views == resource.data.views + 1);
       allow delete: if isOwner(resource.data.ownerId) || isAdmin();
     }
 
@@ -57,27 +73,26 @@ service cloud.firestore {
     match /matchProfiles/{profileId} {
       allow read: if true;
       allow create: if isAuth() && request.auth.uid == request.resource.data.uid;
-      allow update: if isOwner(resource.data.uid) || isAdmin();
+      // Owner can update their profile but cannot reassign the uid field
+      allow update: if (isOwner(resource.data.uid) && noneChanged(['uid'])) || isAdmin();
       allow delete: if isOwner(resource.data.uid) || isAdmin();
     }
 
     // ─── Connection Requests ──────────────────────────────────────────────────
     match /connections/{connId} {
-      // Only the two parties involved can read their connection
       allow read: if isAuth() && (
         request.auth.uid == resource.data.fromUid ||
         request.auth.uid == resource.data.toUid
       );
       allow create: if isAuth()
         && request.auth.uid == request.resource.data.fromUid
-        // Must start as pending; can't self-connect
         && request.resource.data.status == 'pending'
         && request.resource.data.fromUid != request.resource.data.toUid;
-      // Only the recipient can accept or decline
+      // Only the recipient can accept/decline, and only the status field may change
       allow update: if isAuth()
         && request.auth.uid == resource.data.toUid
+        && onlyChanged(['status', 'updatedAt'])
         && request.resource.data.status in ['accepted', 'declined'];
-      // Either party can withdraw/remove a connection
       allow delete: if isAuth() && (
         request.auth.uid == resource.data.fromUid ||
         request.auth.uid == resource.data.toUid
@@ -91,8 +106,9 @@ service cloud.firestore {
         && validString(request.resource.data.title, 5, 200)
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.status == 'active';
-      // Owners can edit but cannot flip status themselves
-      allow update: if (isOwner(resource.data.ownerId) && statusUnchanged()) || isAdmin();
+      // Owner can edit content but cannot change ownerId or status
+      allow update: if isAdmin()
+        || (isOwner(resource.data.ownerId) && statusUnchanged() && noneChanged(['ownerId']));
       allow delete: if isOwner(resource.data.ownerId) || isAdmin();
     }
 
@@ -103,7 +119,8 @@ service cloud.firestore {
         && validString(request.resource.data.title, 5, 200)
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.status == 'active';
-      allow update: if (isOwner(resource.data.ownerId) && statusUnchanged()) || isAdmin();
+      allow update: if isAdmin()
+        || (isOwner(resource.data.ownerId) && statusUnchanged() && noneChanged(['ownerId']));
       allow delete: if isOwner(resource.data.ownerId) || isAdmin();
     }
 
@@ -115,7 +132,13 @@ service cloud.firestore {
         && validString(request.resource.data.desc, 20, 2000)
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.status == 'active';
-      allow update: if (isOwner(resource.data.ownerId) && statusUnchanged()) || isAdmin();
+      allow update: if isAdmin()
+        // Owner can edit content but cannot touch counters or reassign ownership
+        || (isOwner(resource.data.ownerId) && statusUnchanged() && noneChanged(['ownerId', 'upvotes', 'comments']))
+        // Any authenticated user may upvote/downvote (±1 only)
+        || (isAuth() && onlyChanged(['upvotes']) && request.resource.data.upvotes is int && counterStep('upvotes'))
+        // Any authenticated user may adjust the comment counter (±1 only)
+        || (isAuth() && onlyChanged(['comments']) && request.resource.data.comments is int && counterStep('comments'));
       allow delete: if isOwner(resource.data.ownerId) || isAdmin();
 
       match /votes/{uid} {
@@ -135,17 +158,16 @@ service cloud.firestore {
 
     // ─── Blog Posts ───────────────────────────────────────────────────────────
     match /blogPosts/{postId} {
-      // Approved posts are public; authors can read their own pending/rejected posts; admins see all
       allow read: if resource.data.status == 'approved'
         || isOwner(resource.data.authorId)
         || isAdmin();
       allow create: if isAuth()
         && validString(request.resource.data.title, 5, 200)
-        // New posts enter moderation — only admins can approve
         && request.resource.data.status == 'pending'
         && request.resource.data.authorId == request.auth.uid;
-      // Authors can edit content but cannot self-approve; only admins change status
-      allow update: if (isOwner(resource.data.authorId) && statusUnchanged()) || isAdmin();
+      // Author can edit content but cannot self-approve, self-feature, self-pin, or reassign authorship
+      allow update: if isAdmin()
+        || (isOwner(resource.data.authorId) && statusUnchanged() && noneChanged(['authorId', 'isFeatured', 'isPinnedHome']));
       allow delete: if isOwner(resource.data.authorId) || isAdmin();
     }
 
@@ -156,8 +178,11 @@ service cloud.firestore {
         && validString(request.resource.data.title, 5, 200)
         && request.resource.data.status == 'pending'
         && request.resource.data.organizerId == request.auth.uid;
-      // Organizers can update content but not approval status
-      allow update: if (isOwner(resource.data.organizerId) && statusUnchanged()) || isAdmin();
+      allow update: if isAdmin()
+        // Organizer can edit content but cannot change status, isFeatured, or the rsvpCount counter
+        || (isOwner(resource.data.organizerId) && statusUnchanged() && noneChanged(['organizerId', 'rsvpCount', 'isFeatured']))
+        // Any authenticated user may RSVP / un-RSVP (±1 only)
+        || (isAuth() && onlyChanged(['rsvpCount']) && request.resource.data.rsvpCount is int && counterStep('rsvpCount'));
       allow delete: if isOwner(resource.data.organizerId) || isAdmin();
 
       match /rsvps/{uid} {
@@ -172,19 +197,38 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ─── FAQs ─────────────────────────────────────────────────────────────────
+    match /faqs/{faqId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ─── Ecosystem Orgs ───────────────────────────────────────────────────────
+    match /ecosystemOrgs/{orgId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ─── Idea Resources ───────────────────────────────────────────────────────
+    match /ideaResources/{resourceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // ─── Notifications ────────────────────────────────────────────────────────
     match /notifications/{notifId} {
-      // Only the recipient can read their notifications
       allow read: if isAuth() && request.auth.uid == resource.data.toUid;
       allow create: if isAuth()
         && request.resource.data.fromUid == request.auth.uid
         && validString(request.resource.data.toUid, 1, 128)
-        // Cannot notify yourself
         && request.resource.data.toUid != request.auth.uid
         && validString(request.resource.data.type, 1, 64)
         && request.resource.data.createdAt is timestamp;
-      // Recipients can mark as read or dismiss
-      allow update: if isAuth() && request.auth.uid == resource.data.toUid;
+      // Recipient may only mark notification as read; cannot alter sender or type
+      allow update: if isAuth()
+        && request.auth.uid == resource.data.toUid
+        && onlyChanged(['read', 'readAt'])
+        && (!('readAt' in request.resource.data) || request.resource.data.readAt is timestamp);
       allow delete: if isAuth() && request.auth.uid == resource.data.toUid;
     }
 

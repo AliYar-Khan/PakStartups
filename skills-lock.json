@@ -6,6 +6,11 @@
       "sourceType": "github",
       "computedHash": "aa4e7fe5d367d0e3ff41a5e98b1f84a904a255d595c19e3be410be12f13b3173"
     },
+    "firestore-security-rules-auditor": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "f3e47896a49b76db787f47ee97f8cb2e23c51e4b18a73cd2ded32d6cc8c02869"
+    },
     "frontend-design": {
       "source": "anthropics/skills",
       "sourceType": "github",
